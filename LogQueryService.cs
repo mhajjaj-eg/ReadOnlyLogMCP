@@ -408,6 +408,75 @@ public sealed class LogQueryService
         return ListLogDirectories().Directories;
     }
 
+    public LogFileAccessResult GetLogFileAccess(string directoryName, string relativePath)
+    {
+        var displayPath = FormatDisplayPath(relativePath);
+        try
+        {
+            var fullPath = ResolveFile(directoryName, relativePath);
+            var info = new FileInfo(fullPath);
+            return new LogFileAccessResult(directoryName, displayPath, fullPath, info.Name, info.Length);
+        }
+        catch (LogAccessException ex)
+        {
+            return new LogFileAccessResult(directoryName, displayPath, string.Empty, string.Empty, 0, ex.Message);
+        }
+    }
+
+    public LogFileDownloadUrlResult CreateLogFileDownloadUrl(string directoryName, string relativePath)
+    {
+        var access = GetLogFileAccess(directoryName, relativePath);
+        if (access.Error is not null)
+        {
+            return new LogFileDownloadUrlResult(
+                "invalid_input",
+                directoryName,
+                relativePath,
+                0,
+                string.Empty,
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<LogFileItem>(),
+                access.Error,
+                access.Error);
+        }
+
+        var baseUrl = (_options.PublicBaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return new LogFileDownloadUrlResult(
+                "invalid_input",
+                directoryName,
+                relativePath,
+                access.SizeBytes,
+                string.Empty,
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<LogFileItem>(),
+                "LogAccess:PublicBaseUrl is not configured.",
+                "LogAccess:PublicBaseUrl is not configured.");
+        }
+
+        var query = $"directoryName={Uri.EscapeDataString(directoryName)}&relativePath={Uri.EscapeDataString(relativePath)}";
+        return new LogFileDownloadUrlResult(
+            "ready",
+            directoryName,
+            relativePath,
+            access.SizeBytes,
+            $"{baseUrl}/downloads/log-file?{query}",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            Array.Empty<LogFileItem>(),
+            "Open the downloadUrl in a browser or HTTP client to download the file.");
+    }
+
+    public async Task WriteLogFileAsync(Stream output, string directoryName, string relativePath, CancellationToken cancellationToken)
+    {
+        var fullPath = ResolveFile(directoryName, relativePath);
+        await using var source = OpenReadStream(fullPath);
+        await source.CopyToAsync(output, cancellationToken);
+    }
+
     public async Task WriteLogBundleAsync(Stream output, LogBundleSelectionResult selection, CancellationToken cancellationToken)
     {
         if (selection.Error is not null)

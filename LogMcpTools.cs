@@ -66,6 +66,60 @@ public sealed class LogMcpTools(LogQueryService logQueryService)
         return logQueryService.LatestErrors(directoryName, maxResults);
     }
 
+    [McpServerTool, Description("Guides single log file download. If directoryName is omitted, returns available directories. If relativePath is omitted, lists files inside the chosen directory so the user can pick or type one. When both are present and valid, returns a ready-to-use HTTP download URL for that file.")]
+    public LogFileDownloadUrlResult get_log_file_download_url(
+        [Description("Immediate child directory name under the configured log root. Optional. If omitted, returns available directory options.")] string? directoryName = null,
+        [Description("Relative path to the file inside the selected directory. Optional. If omitted, lists available files in the directory.")] string? relativePath = null,
+        [Description("Set to true to include files in subdirectories when listing available files.")] bool recursive = false)
+    {
+        if (string.IsNullOrWhiteSpace(directoryName))
+        {
+            var dirs = logQueryService.GetDirectoryOptions();
+            return new LogFileDownloadUrlResult(
+                "needs_directory",
+                string.Empty,
+                string.Empty,
+                0,
+                string.Empty,
+                new[] { "directoryName" },
+                dirs,
+                Array.Empty<LogFileItem>(),
+                "Select one of the availableDirectories, then call again with directoryName to see the files.");
+        }
+
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            var listing = logQueryService.ListLogFiles(directoryName, recursive);
+            if (listing.Error is not null)
+            {
+                return new LogFileDownloadUrlResult(
+                    "invalid_input",
+                    directoryName,
+                    string.Empty,
+                    0,
+                    string.Empty,
+                    new[] { "relativePath" },
+                    Array.Empty<string>(),
+                    Array.Empty<LogFileItem>(),
+                    listing.Error,
+                    listing.Error);
+            }
+
+            return new LogFileDownloadUrlResult(
+                "needs_file",
+                directoryName,
+                string.Empty,
+                0,
+                string.Empty,
+                new[] { "relativePath" },
+                Array.Empty<string>(),
+                listing.Files,
+                $"'{directoryName}' has {listing.Count} file(s). Set relativePath to a value from availableFiles or type the path directly.");
+        }
+
+        return logQueryService.CreateLogFileDownloadUrl(directoryName, relativePath);
+    }
+
     [McpServerTool, Description("Guides bundle download preparation. If directoryName is missing, it returns available directories. If dates are missing, it returns which fields are still needed. When all inputs are present and valid, it returns a ready-to-use HTTP download URL.")]
     public LogBundleDownloadUrlResult get_log_bundle_download_url(
         [Description("Immediate child directory name under the configured log root. Optional. If omitted, the tool returns available directory options.")] string? directoryName = null,

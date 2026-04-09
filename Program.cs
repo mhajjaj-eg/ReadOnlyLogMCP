@@ -47,6 +47,7 @@ app.MapGet("/", (IConfiguration configuration) => Results.Ok(new
 {
 	name = "ReadOnlyLogMCP",
 	mcpEndpoint = "/mcp",
+	downloadFileEndpoint = "/downloads/log-file?directoryName={directoryName}&relativePath={relativePath}",
 	downloadBundleEndpoint = "/downloads/log-bundle?directoryName={directoryName}&startDate=yyyy-MM-dd&endDate=yyyy-MM-dd&recursive=true",
 	legacySse = new
 	{
@@ -85,6 +86,22 @@ app.MapGet("/downloads/log-bundle", async (HttpContext httpContext, LogQueryServ
 	httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{bundleName}\"";
 
 	await logQueryService.WriteLogBundleAsync(httpContext.Response.Body, selection, cancellationToken);
+	return Results.Empty;
+});
+
+app.MapGet("/downloads/log-file", async (HttpContext httpContext, LogQueryService logQueryService, string directoryName, string relativePath, CancellationToken cancellationToken) =>
+{
+	var access = logQueryService.GetLogFileAccess(directoryName, relativePath);
+	if (access.Error is not null)
+	{
+		return Results.BadRequest(new { error = access.Error });
+	}
+
+	httpContext.Response.StatusCode = StatusCodes.Status200OK;
+	httpContext.Response.ContentType = "application/octet-stream";
+	httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{access.FileName}\"";
+
+	await logQueryService.WriteLogFileAsync(httpContext.Response.Body, directoryName, relativePath, cancellationToken);
 	return Results.Empty;
 });
 

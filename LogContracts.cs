@@ -94,3 +94,23 @@ public sealed record LogBundleDownloadUrlResult(
     IReadOnlyList<string> AvailableDirectories,
     string? Message = null,
     string? Error = null);
+
+public sealed record LogFileAccessResult(
+    string DirectoryName,
+    string RelativePath,
+    string FullPath,
+    string FileName,
+    long SizeBytes,
+    string? Error = null);
+
+public sealed record LogFileDownloadUrlResult(
+    string Status,
+    string DirectoryName,
+    string RelativePath,
+    long SizeBytes,
+    string DownloadUrl,
+    IReadOnlyList<string> MissingFields,
+    IReadOnlyList<string> AvailableDirectories,
+    IReadOnlyList<LogFileItem> AvailableFiles,
+    string? Message = null,
+    string? Error = null);
