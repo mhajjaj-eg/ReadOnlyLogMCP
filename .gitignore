@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.pfx
+publish/
+publish-mcp/
+*.zip
+appsettings.Production.json
+appsettings.Local.json
+appsettings.*.local.json
